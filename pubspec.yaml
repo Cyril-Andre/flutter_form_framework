@@ -1,0 +1,24 @@
+name: flutter_form_framework
+description: A Material 3–friendly form framework with configurable container, dirty state tracking, readonly styling, and flexible dropdowns (fixed/async, objects/enums).
+version: 0.1.0
+homepage: https://github.com/Cyril-Andre/flutter_form_framework
+repository: https://github.com/Cyril-Andre/flutter_form_framework
+documentation: https://github.com/Cyril-Andre/flutter_form_framework#readme
+issue_tracker: https://github.com/Cyril-Andre/flutter_form_framework/issues
+license: MIT
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
