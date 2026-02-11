@@ -1,0 +1,8 @@
+# Workspace (éditeur)
+*.code-workspace
+
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
