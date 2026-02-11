@@ -1,18 +1,29 @@
 # flutter_form_framework
 
-A Material 3–friendly form framework for Flutter with a configurable container, **dirty state** tracking, **readonly** styling, and flexible dropdowns (fixed or async, with support for objects, enums, and simple types).
+A Material 3–friendly form framework for Flutter with a configurable form
+container, dirty state tracking, readonly styling, and flexible dropdowns
+(fixed or async, strings, enums, or custom objects).
 
 ## Features
 
-- **Form container**: Optional border (none, square, or rounded), padding, and custom colors while respecting Material 3 theming.
-- **Dirty state**: The form tracks whether any field has changed since the last "saved" snapshot. Use `FormFrameScope.of(context)?.isDirty` and `markAsSaved()`.
-- **Readonly**: Every input widget has a `readonly` property that updates background and foreground colors (from theme or custom [FormThemeData]) and prevents editing.
-- **Input widgets**: Text field, dropdown, checkbox, and option (radio) that integrate with the form container, theme, and dirty tracking.
-- **Dropdowns**: Support fixed `items`, async `itemsFuture`, and any item type: [ItemString] objects (custom label), [String], or [Enum] (displayed by name).
+- **Form container** — Configurable border (none, square, rounded), padding,
+  and optional theme. Uses Material 3 colors by default.
+- **Dirty state tracking** — Know when any field value has changed since the
+  last “saved” snapshot. Register fields by key; call `markAsSaved()` to
+  update the baseline.
+- **Readonly styling** — Input widgets get distinct background and foreground
+  colors when `readonly` is true, and editing is disabled.
+- **Theme** — Optional `FormThemeData` for form container and input colors
+  (background, foreground, readonly). Falls back to `ThemeData` / ColorScheme.
+- **Form widgets** — Text field, dropdown, checkbox, and option button (radio)
+  that integrate with the container, theme, and dirty state.
+- **Flexible dropdowns** — Support fixed `List<T>`, async `Future<List<T>>`,
+  and items as `String`, `Enum`, or `ItemString`. Optional searchable and
+  clearable modes.
 
 ## Installation
 
-Add to your `pubspec.yaml`:
+Add `flutter_form_framework` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -22,39 +33,51 @@ dependencies:
 Then run:
 
 ```bash
-flutter pub get
+dart pub get
 ```
 
 ## Usage
 
-### Form container and dirty state
+### Basic form with container and fields
 
-Wrap your form in [FormContainer]. Use [FormFrameScope] to access dirty state and call `markAsSaved()`.
+Wrap your form fields in a `FormContainer`. Use `FormTextField`, `FormDropdown`,
+`FormCheckbox`, and `FormOptionButton` with a `formFieldKey` so they register
+with the shared state for dirty tracking and theming.
 
 ```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_form_framework/flutter_form_framework.dart';
+
 Form(
   child: FormContainer(
     border: FormContainerBorder.rounded,
-    theme: FormThemeData(
-      formBackgroundColor: Colors.blue.shade50,
-      inputBackgroundColor: Colors.white,
-    ),
+    padding: const EdgeInsets.all(20),
     child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FormTextField(
           formFieldKey: 'name',
           initialValue: 'Jane',
-          decoration: InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
-        ),
-        // Show save button only when dirty
-        ListenableBuilder(
-          listenable: FormFrameScope.of(context)!,
-          builder: (_, __) => FilledButton(
-            onPressed: FormFrameScope.of(context)!.isDirty
-                ? () => FormFrameScope.of(context)!.markAsSaved()
-                : null,
-            child: Text('Save'),
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            border: OutlineInputBorder(),
           ),
+        ),
+        const SizedBox(height: 16),
+        FormDropdown<String>(
+          formFieldKey: 'priority',
+          initialValue: null,
+          items: ['Low', 'Medium', 'High'],
+          decoration: const InputDecoration(
+            labelText: 'Priority',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FormCheckbox(
+          formFieldKey: 'agree',
+          initialValue: false,
+          label: const Text('I agree'),
         ),
       ],
     ),
@@ -62,115 +85,119 @@ Form(
 )
 ```
 
-### Border options
+### Dirty state
 
-- [FormContainerBorder.none]: No border.
-- [FormContainerBorder.square]: 1px border, no radius.
-- [FormContainerBorder.rounded]: 1px border with 12px radius.
+Access `FormFrameState` via `FormFrameScope.of(context)` to check if the form
+has unsaved changes and to mark it as saved after persisting.
 
-### Theming
+```dart
+final formState = FormFrameScope.of(context);
 
-Use [FormThemeData] to override colors. When a color is `null`, the framework uses the current Material 3 theme (e.g. `ColorScheme.surface`, `onSurface`). You can set:
+// Check if any field value changed since last snapshot
+if (formState?.isDirty ?? false) {
+  // Show "Unsaved changes" or enable Save button
+}
 
-- `formBackgroundColor` / `formForegroundColor`: Form container.
-- `inputBackgroundColor` / `inputForegroundColor`: Editable inputs.
-- `readonlyBackgroundColor` / `readonlyForegroundColor`: Readonly inputs.
+// After saving to backend or local storage, update the baseline
+formState?.markAsSaved();
+```
 
-### Readonly
+You can also read `currentValues` or `initialValues` from the same state.
 
-Set `readonly: true` on any input. Background and text use the theme (or [FormThemeData] readonly colors), and the field is not editable.
+### Optional theme
+
+Pass `FormThemeData` to customize form and input colors. Omit it to use
+Material 3 theme colors.
+
+```dart
+FormContainer(
+  theme: FormThemeData(
+    formBackgroundColor: Colors.grey.shade100,
+    inputBackgroundColor: Colors.white,
+    readonlyBackgroundColor: Colors.grey.shade200,
+  ),
+  child: /* ... */,
+)
+```
+
+### Readonly mode
+
+Set `readonly: true` on any form input widget. It will use the theme’s
+readonly colors and prevent user edits.
 
 ```dart
 FormTextField(
-  formFieldKey: 'readonly_field',
-  initialValue: 'Cannot edit',
+  formFieldKey: 'name',
+  initialValue: 'Jane',
   readonly: true,
-  decoration: InputDecoration(labelText: 'Read-only'),
+  decoration: const InputDecoration(labelText: 'Name'),
 )
 ```
 
-### Dropdown: fixed items
+### Dropdown: async items and enums
 
-```dart
-FormDropdown<String>(
-  formFieldKey: 'priority',
-  initialValue: selectedPriority,
-  items: ['low', 'medium', 'high'],
-  decoration: InputDecoration(labelText: 'Priority'),
-  onChanged: (v) => setState(() => selectedPriority = v),
-)
-```
-
-### Dropdown: enum items
-
-Enums are displayed by their `name`:
+Use `itemsFuture` for async loading. Use enums or custom types that implement
+`ItemString` for display labels.
 
 ```dart
 enum Priority { low, medium, high }
 
 FormDropdown<Priority>(
   formFieldKey: 'priority',
-  initialValue: selectedPriority,
+  initialValue: Priority.medium,
   items: Priority.values,
-  ...
+  searchable: true,
+  clearable: true,
+  decoration: const InputDecoration(
+    labelText: 'Priority',
+    border: OutlineInputBorder(),
+  ),
 )
 ```
 
-### Dropdown: custom objects (ItemString)
+## Widgets overview
 
-Implement [ItemString] for a custom label:
+| Widget              | Description                                      |
+|---------------------|--------------------------------------------------|
+| `FormContainer`     | Container with border, padding, theme, and state |
+| `FormTextField`     | Text field with theme and dirty tracking         |
+| `FormDropdown<T>`   | Dropdown; fixed/async items; optional search     |
+| `FormCheckbox`      | Checkbox with optional tristate                  |
+| `FormOptionButton<T>` | Radio option; use with same `formFieldKey` for group |
 
-```dart
-class City implements ItemString {
-  City(this.name, this.code);
-  final String name;
-  final String code;
-  @override
-  String get itemString => name;
-}
+All input widgets accept a `formFieldKey` (for state) and `readonly`. They
+participate in `FormThemeScope` and `FormFrameScope` when placed inside a
+`FormContainer`.
 
-FormDropdown<City>(
-  formFieldKey: 'city',
-  items: [City('Paris', 'FR'), City('Brussels', 'BE')],
-  ...
-)
-```
+## Custom form widgets
 
-### Dropdown: async items
-
-Use `itemsFuture` for data loaded asynchronously:
-
-```dart
-FormDropdown<User>(
-  formFieldKey: 'user',
-  itemsFuture: api.fetchUsers(),
-  ...
-)
-```
-
-### Checkbox and option (radio)
-
-```dart
-FormCheckbox(
-  formFieldKey: 'agree',
-  initialValue: false,
-  label: Text('I agree'),
-  onChanged: (v) => setState(() => agree = v),
-)
-
-// Radio group: same formFieldKey, parent holds groupValue
-FormOptionButton<String>(
-  formFieldKey: 'choice',
-  value: 'A',
-  groupValue: selectedChoice,
-  label: Text('Option A'),
-  onChanged: (v) => setState(() => selectedChoice = v),
-)
-```
+Extend `FormInputWidget` and `FormInputState` to build custom inputs that
+respect the same theme and readonly styling. Use `resolveThemeColors(context)`
+in your `build` method for background and foreground colors.
 
 ## Example
 
-See the [example](example/) app for a full demo: container styles, theming, dirty state, readonly field, and dropdown with enum-style items.
+The package includes a full example in the `example/` directory. Run it with:
+
+```bash
+cd example && flutter run
+```
+
+It demonstrates the form container, all field types, theme switching, dirty
+state, and readonly mode.
+
+## Requirements
+
+- Dart SDK `>=3.0.0 <4.0.0`
+- Flutter `>=3.0.0`
+- Material 3 is recommended; the framework uses Material 3 theme colors when
+  custom theme colors are not set.
+
+## Links
+
+- [Package on pub.dev](https://pub.dev/packages/flutter_form_framework)
+- [Source code](https://github.com/Cyril-Andre/flutter_form_framework)
+- [Issue tracker](https://github.com/Cyril-Andre/flutter_form_framework/issues)
 
 ## License
 
